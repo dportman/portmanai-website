@@ -106,27 +106,6 @@ main p a, main li a { text-decoration-thickness: 1px; text-underline-offset: 2px
   border: none;
   cursor: pointer;
 }
-.subscribe {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  margin: 0.5rem 0 0.25rem;
-}
-.subscribe input[type="email"] {
-  flex: 1 1 14rem;
-  padding: 0.58rem 0.9rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 0.95rem;
-  background: var(--bg);
-  color: var(--ink);
-}
-#subscribe {
-  border-top: 1px solid var(--border);
-  margin-top: 1.5rem;
-}
-#subscribe h2 { font-size: 1.1rem; }
-#subscribe > p { color: var(--ink-soft); font-size: 0.95rem; }
 
 /* Post list */
 ul.posts { list-style: none; padding: 0; margin: 0; }
