@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Portman AI — Practical Agentic Systems</title>
+    <link>https://portman.ai/</link>
+    <description>Essays on building production-grade LLM and agentic systems, by Danny Portman.</description>
+    <language>en</language>
+    <atom:link href="https://portman.ai/feed.xml" rel="self" type="application/rss+xml"/>
+    <item>
+      <title>MCP in Production: What the Tutorials Don't Cover</title>
+      <link>https://portman.ai/writing/mcp-in-production.html</link>
+      <guid>https://portman.ai/writing/mcp-in-production.html</guid>
+      <pubDate>Mon, 17 Aug 2026 09:00:00 GMT</pubDate>
+      <description>MCP server best practices for production: credential scoping, schema versioning, error design, idempotency, and the observability that tutorials skip.</description>
+    </item>
+    <item>
+      <title>The Real Cost of an Agent: A Token Economics Field Guide</title>
+      <link>https://portman.ai/writing/agent-token-economics.html</link>
+      <guid>https://portman.ai/writing/agent-token-economics.html</guid>
+      <pubDate>Mon, 17 Aug 2026 08:00:00 GMT</pubDate>
+      <description>LLM agent cost optimization: why context growth and retries dominate the bill, four levers that cut spend 5–10x, and a worksheet for estimating cost per run.</description>
+    </item>
+    <item>
+      <title>Evals Before Agents: The Order of Operations Nobody Follows</title>
+      <link>https://portman.ai/writing/evals-before-agents.html</link>
+      <guid>https://portman.ai/writing/evals-before-agents.html</guid>
+      <pubDate>Mon, 17 Aug 2026 07:00:00 GMT</pubDate>
+      <description>How to test LLM agents: a minimum viable eval stack with a 30-case golden set, three kinds of graders, and a CI regression gate. Build it before the agent.</description>
+    </item>
+    <item>
+      <title>Your Agent Doesn't Need More Autonomy. It Needs Better Boundaries.</title>
+      <link>https://portman.ai/writing/agent-boundaries.html</link>
+      <guid>https://portman.ai/writing/agent-boundaries.html</guid>
+      <pubDate>Mon, 17 Aug 2026 06:00:00 GMT</pubDate>
+      <description>Why constrained AI agents with tool allowlists, step caps, and approval gates beat fully autonomous agent loops in production.</description>
+    </item>
+  </channel>
+</rss>

@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MCP Server Best Practices for Production — Portman AI</title>
+  <meta name="description" content="MCP server best practices for production: credential scoping, schema versioning, error design, idempotency, and the observability that tutorials skip.">
+  <meta name="author" content="Danny Portman">
+  <link rel="canonical" href="https://portman.ai/writing/mcp-in-production.html">
+  <link rel="alternate" type="application/rss+xml" title="Portman AI — Practical Agentic Systems" href="https://portman.ai/feed.xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Portman AI">
+  <meta property="og:url" content="https://portman.ai/writing/mcp-in-production.html">
+  <meta property="og:title" content="MCP in Production: What the Tutorials Don't Cover">
+  <meta property="og:description" content="MCP server best practices for production: credential scoping, schema versioning, error design, idempotency, and the observability that tutorials skip.">
+  <meta property="og:image" content="https://portman.ai/og.png">
+  <meta property="article:published_time" content="2026-08-17">
+  <meta property="article:author" content="Danny Portman">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="MCP in Production: What the Tutorials Don't Cover">
+  <meta name="twitter:description" content="MCP server best practices for production: credential scoping, schema versioning, error design, idempotency, and the observability that tutorials skip.">
+  <meta name="twitter:image" content="https://portman.ai/og.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "MCP in Production: What the Tutorials Don't Cover",
+    "description": "MCP server best practices for production: credential scoping, schema versioning, error design, idempotency, and the observability that tutorials skip.",
+    "url": "https://portman.ai/writing/mcp-in-production.html",
+    "datePublished": "2026-08-17",
+    "dateModified": "2026-08-17",
+    "mainEntityOfPage": "https://portman.ai/writing/mcp-in-production.html",
+    "image": "https://portman.ai/og.png",
+    "author": { "@type": "Person", "name": "Danny Portman", "url": "https://portman.ai/" },
+    "publisher": { "@type": "Person", "name": "Danny Portman", "url": "https://portman.ai/" },
+    "isPartOf": { "@id": "https://portman.ai/writing/#blog" }
+  }
+  </script>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▲</text></svg>">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="/">Portman AI</a>
+    <nav class="site">
+      <a href="/">Home</a>
+      <a href="./" aria-current="page">Writing</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <article class="post">
+    <h1>MCP in Production: What the Tutorials Don't Cover</h1>
+    <p class="meta">Danny Portman · August 17, 2026</p>
+
+    <p>
+      The Model Context Protocol won the "how do agents talk to tools" argument fast
+      enough that there's already an enormous tutorial ecosystem, and every tutorial
+      covers the same thing: expose a function as a tool, wire it to a client, watch a
+      model call it. That part genuinely is easy. An afternoon, maybe less.
+    </p>
+    <p>
+      Then a second team starts depending on your server, an agent calls it ten thousand
+      times a week, and you discover the tutorial covered about 10% of the job. The rest
+      is the unglamorous engineering that makes any API production-grade, plus a few
+      twists that come from your caller being a language model rather than a developer
+      who read your docs. (If you need the recap: MCP is a protocol that lets AI
+      applications discover and call tools, read resources, and use prompts exposed by a
+      server. The spec at modelcontextprotocol.io covers it well, and that's the last
+      basics will come up here.)
+    </p>
+
+    <h2>Credential scoping: the server is not the user</h2>
+    <p>
+      The tutorial pattern is a server holding one API key in an environment variable.
+      That key silently grants every connected agent the union of its permissions, which
+      is how a support agent ends up technically able to touch the billing system. Nobody
+      decided that. It just happened, one env var at a time.
+    </p>
+    <p>
+      The fix is boring: authenticate your callers, not just your backends, and let
+      per-caller scope decide which tools are even <em>listed</em> on a given connection.
+      Don't rely on the model politely declining to call a tool it can see. An unlisted
+      tool can't be called, can't be hallucinated into, and can't be reached by prompt
+      injection. Filtering the tool list is the cheapest security boundary you will ever
+      deploy.
+    </p>
+
+    <h2>Schema evolution: your caller doesn't read the changelog</h2>
+    <p>
+      Change a REST API and consumers break loudly, at compile time if you're lucky.
+      Change an MCP tool schema and something stranger happens: agents keep calling it,
+      because the caller is a model improvising against whatever schema it's shown today.
+      Rename a parameter and yesterday's prompts start producing almost-right calls that
+      fail validation. Or worse, calls that pass validation and mean something subtly
+      different now.
+    </p>
+    <p>So treat tool schemas with API-contract discipline:</p>
+    <p>
+      1. Additive changes only; new parameters are optional with defaults.<br>
+      2. Breaking changes ship as a new tool (<code>search_orders_v2</code>), and the old
+      one stays, deprecated and monitored, until its call volume hits zero.<br>
+      3. Descriptions are part of the contract. Models route on them, so a "harmless"
+      wording tweak can shift calling behavior as much as a schema change. Version them,
+      review them, and cover them with <a href="evals-before-agents.html">evals</a>,
+      because functionally they're prompts.
+    </p>
+
+    <h2>Failure handling: errors are prompts now</h2>
+    <p>
+      When a tool call fails, the error message goes into the model's context, and the
+      model decides what to do next based on what it says. This makes error strings
+      load-bearing in a way backend engineers aren't used to. <code>ERR_TIMEOUT_5003</code>
+      gives the model nothing, so it guesses, and its favorite guess is retrying the
+      exact same call. Compare <code>"date_from must be YYYY-MM-DD, got '3/24'"</code>,
+      which gets a corrected call on the next step, or <code>"rate limited — do not retry
+      for 60 seconds"</code>, which can head off the retry storm that was about to start.
+      Write every error message as an instruction to the caller, because that's what it
+      is now.
+    </p>
+    <p>
+      Two more habits that pay for themselves. Set server-side timeouts and make them
+      visible in the response; an agent that never hears back doesn't fail cleanly, it
+      stalls an entire run. And make every mutating tool idempotent, with a
+      client-supplied idempotency key, because the one thing you know for certain about
+      your caller is that it will eventually send the same call twice.
+    </p>
+
+    <h2>Observability: log the conversation, not just the request</h2>
+    <p>
+      Standard API logging tells you a request happened. Debugging an agent requires
+      knowing why: which session, which step of the run, what had already been tried.
+      Log every tool call with a correlation ID tying it to the agent trace, the full
+      arguments, truncated results, latency, and outcome. When someone asks "why did the
+      agent delete that record," the answer should be one query, not an archaeology
+      project. The same log doubles as your audit trail, and as the dataset that shows
+      which tools get misused, which descriptions confuse the model, and which of your
+      error messages trigger retry loops.
+    </p>
+
+    <h2>A reference shape</h2>
+    <p>Production MCP deployments tend to converge on this:</p>
+    <pre><code>agents ──▶ gateway            ──▶ MCP servers        ──▶ backends
+           - authn per caller     - thin tool logic      - real systems
+           - tool-list filtering  - schema versioning
+           - rate limits          - typed errors
+           - call logging         - idempotency keys</code></pre>
+    <p>
+      The gateway is the piece no tutorial mentions and the one you'll be gladdest you
+      built. One place for authentication, scoping, rate limits, and logging, so each
+      individual server stays thin and boring.
+    </p>
+
+    <h2>The production-readiness checklist</h2>
+    <p>Before another team depends on your server:</p>
+    <p>
+      ☐ Callers are individually authenticated; no shared god-key.<br>
+      ☐ Tool listings are filtered per caller's scope.<br>
+      ☐ Schema changes are additive, or ship as a new versioned tool.<br>
+      ☐ Tool descriptions are under version control and covered by evals.<br>
+      ☐ Every error message tells the model what to do next.<br>
+      ☐ Mutating tools accept idempotency keys.<br>
+      ☐ Timeouts exist, and are reported rather than silent.<br>
+      ☐ Every call is logged with a trace correlation ID.<br>
+      ☐ Someone is watching deprecated-tool call volume before deletion.
+    </p>
+    <p>
+      None of this is exotic. It's the ordinary discipline of running an API, applied to
+      a caller that reads your error messages literally, routes on your descriptions,
+      and never reads your changelog. Do the boring 90% and MCP becomes what it promised
+      to be: a reliable seam between your agents and everything else.
+    </p>
+  </article>
+
+  <section id="subscribe">
+    <h2>Get the next essay</h2>
+    <!-- TODO: replace action URL with your newsletter form endpoint -->
+    <form class="subscribe" action="#" method="post">
+      <input type="email" name="email" placeholder="you@company.com" required aria-label="Email address">
+      <button class="btn" type="submit">Subscribe</button>
+    </form>
+  </section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    Danny Portman · <a href="mailto:danny@portman.ai">danny@portman.ai</a>
+  </div>
+</footer>
+
+</body>
+</html>

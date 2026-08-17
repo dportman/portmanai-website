@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How to Test LLM Agents: Evals Before Agents — Portman AI</title>
+  <meta name="description" content="How to test LLM agents: a minimum viable eval stack with a 30-case golden set, three kinds of graders, and a CI regression gate. Build it before the agent.">
+  <meta name="author" content="Danny Portman">
+  <link rel="canonical" href="https://portman.ai/writing/evals-before-agents.html">
+  <link rel="alternate" type="application/rss+xml" title="Portman AI — Practical Agentic Systems" href="https://portman.ai/feed.xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Portman AI">
+  <meta property="og:url" content="https://portman.ai/writing/evals-before-agents.html">
+  <meta property="og:title" content="Evals Before Agents: The Order of Operations Nobody Follows">
+  <meta property="og:description" content="How to test LLM agents: a minimum viable eval stack with a 30-case golden set, three kinds of graders, and a CI regression gate. Build it before the agent.">
+  <meta property="og:image" content="https://portman.ai/og.png">
+  <meta property="article:published_time" content="2026-08-17">
+  <meta property="article:author" content="Danny Portman">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Evals Before Agents: The Order of Operations Nobody Follows">
+  <meta name="twitter:description" content="How to test LLM agents: a minimum viable eval stack with a 30-case golden set, three kinds of graders, and a CI regression gate. Build it before the agent.">
+  <meta name="twitter:image" content="https://portman.ai/og.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Evals Before Agents: The Order of Operations Nobody Follows",
+    "description": "How to test LLM agents: a minimum viable eval stack with a 30-case golden set, three kinds of graders, and a CI regression gate. Build it before the agent.",
+    "url": "https://portman.ai/writing/evals-before-agents.html",
+    "datePublished": "2026-08-17",
+    "dateModified": "2026-08-17",
+    "mainEntityOfPage": "https://portman.ai/writing/evals-before-agents.html",
+    "image": "https://portman.ai/og.png",
+    "author": { "@type": "Person", "name": "Danny Portman", "url": "https://portman.ai/" },
+    "publisher": { "@type": "Person", "name": "Danny Portman", "url": "https://portman.ai/" },
+    "isPartOf": { "@id": "https://portman.ai/writing/#blog" }
+  }
+  </script>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▲</text></svg>">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="/">Portman AI</a>
+    <nav class="site">
+      <a href="/">Home</a>
+      <a href="./" aria-current="page">Writing</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <article class="post">
+    <h1>Evals Before Agents: The Order of Operations Nobody Follows</h1>
+    <p class="meta">Danny Portman · August 17, 2026</p>
+
+    <p>
+      Ask a team how they know their agent works and you'll usually hear some version of
+      "we tried it on a bunch of cases and it looked good." Which is fine, honestly, for
+      exactly as long as nobody changes anything. The day the second prompt tweak lands,
+      "it looked good" stops being information. Did the tweak help? Hurt? Help on the
+      cases you tried and quietly break the ones you didn't? Nobody knows. From that point
+      on, every change to the system is a coin flip where you don't get to see the result.
+    </p>
+    <p>
+      The standard order of operations is: build the agent, demo the agent, ship the
+      agent, and then, someday, when there's time, build the evals. There is never time.
+      I've come around to the view that inverting this order is the single highest-ROI
+      move in applied LLM work. Build a small eval harness first, before the first agent
+      loop exists. Not because it's virtuous. Because it changes what building feels like:
+      every architecture decision, prompt change, and model swap becomes a measured
+      experiment instead of a vibe.
+    </p>
+
+    <h2>The minimum viable eval stack</h2>
+    <p>
+      Teams skip evals because they picture a platform. Dashboards, annotation pipelines,
+      a data team. You don't need any of that to start. You need three things, and the
+      first version is honestly a weekend of work.
+    </p>
+
+    <h3>1. A golden set of 30–50 cases</h3>
+    <p>
+      Real inputs, each with an expected outcome, in a flat file. Thirty is enough. You're
+      not after statistical power at this stage, you're after tripwires. Pull cases from
+      real traffic if you have it. If you don't, write them from your failure taxonomy:
+      for each way you can imagine the system going wrong, write two cases that would
+      catch it. And include the ugly ones. Ambiguous requests, missing data, inputs the
+      agent should refuse. Those are precisely the cases that "we tried it and it looked
+      good" never covers, because nobody types the ugly cases into a demo.
+    </p>
+
+    <h3>2. Graders you can actually trust</h3>
+    <p>Three kinds, in descending order of trustworthiness.</p>
+    <p>
+      <strong>Exact checks.</strong> The output contains the right order ID. The tool was
+      called with the right arguments. The refund amount matches. Cheap, deterministic,
+      zero false confidence. Teams consistently underuse these because they feel too
+      simple, then reach for an LLM judge to check things a string comparison could have
+      checked for free.
+    </p>
+    <p>
+      <strong>Rubric checks.</strong> Deterministic code asserting properties of the
+      output: cites a source, stays under a length limit, never mentions a competitor.
+      Slightly more work to write, still fully trustworthy.
+    </p>
+    <p>
+      <strong>LLM-as-judge.</strong> For the genuinely qualitative stuff: is the reply
+      helpful, is the tone right, is the summary faithful to the source. Useful, but only
+      under conditions. You need a specific rubric per criterion rather than "rate this
+      1–10 overall," a judge model at least as strong as the one being judged, and a
+      habit of spot-checking the judge's verdicts against your own reading every so
+      often. An uncalibrated judge is worse than no judge, because it manufactures
+      confidence in whatever you already built.
+    </p>
+
+    <h3>3. A regression gate in CI</h3>
+    <p>
+      The whole thing runs on every change to a prompt, a tool schema, or a model
+      version. Same as unit tests run on every code change, because that's what these
+      are. A change that drops the pass rate blocks the merge and prints which cases
+      broke. That last part matters more than the blocking: "these four cases regressed"
+      is a debugging lead, "score went down" is a mood.
+    </p>
+
+    <h2>The part agents make hard: grading the middle</h2>
+    <p>
+      For a single completion, grading the final output is enough. Agents are different.
+      An agent can produce the right answer via a disastrous trajectory: fifteen steps
+      where four would do, or a destructive call that happened to be harmless this time.
+      If you only grade final answers, both of those pass, and both of them are bugs
+      waiting for worse luck. So grade the trace:
+    </p>
+    <pre><code>def grade(trace, case):
+    checks = {
+        # outcome: did it get the right answer?
+        "resolved":    case.expected_id in trace.final_output,
+        # trajectory: did it get there sanely?
+        "step_budget": len(trace.steps) &lt;= case.max_steps,
+        "right_tools": trace.tools_called &lt;= case.allowed_tools,
+        "no_repeats":  not trace.has_repeated_call(),
+        # safety: did it stay inside the lines?
+        "no_writes":   case.read_only or not trace.mutating_calls,
+    }
+    return checks</code></pre>
+    <p>
+      Keep the checks as separate scores instead of collapsing them into one number.
+      "Resolution held at 85% but step-budget violations doubled" is a sentence you can
+      act on. "Score went from 78 to 76" is not. Partial credit matters here too: an
+      agent that correctly escalated a case it couldn't handle should score well on that
+      case. If your grading only rewards full resolution, you are slowly training
+      yourself to build an agent that never admits it's stuck — and as I argued in the
+      <a href="agent-boundaries.html">boundaries essay</a>, the ability to stop and say
+      so is most of what makes an agent deployable.
+    </p>
+
+    <h2>What to skip</h2>
+    <p>
+      Equally important, because eval-tool shopping is its own procrastination: no
+      annotation platforms, no human-labeling pipelines, no significance testing on
+      thirty cases, no eval infrastructure that takes longer to build than the agent it
+      evaluates. One flat file of cases, one grading script, one CI job. The golden set
+      then grows the way a good unit test suite grows: every production failure becomes
+      a case, permanently.
+    </p>
+    <p>
+      The difference this makes is hard to overstate. Teams with this loop ship agent
+      changes several times a week with a straight face. Teams without it ship once,
+      then negotiate with fear every time someone proposes touching the prompt.
+    </p>
+  </article>
+
+  <section id="subscribe">
+    <h2>Get the next essay</h2>
+    <!-- TODO: replace action URL with your newsletter form endpoint -->
+    <form class="subscribe" action="#" method="post">
+      <input type="email" name="email" placeholder="you@company.com" required aria-label="Email address">
+      <button class="btn" type="submit">Subscribe</button>
+    </form>
+  </section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    Danny Portman · <a href="mailto:danny@portman.ai">danny@portman.ai</a>
+  </div>
+</footer>
+
+</body>
+</html>

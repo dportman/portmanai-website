@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLM Agent Cost Optimization: A Token Economics Field Guide — Portman AI</title>
+  <meta name="description" content="LLM agent cost optimization: why context growth and retries dominate the bill, four levers that cut spend 5–10x, and a worksheet for estimating cost per run.">
+  <meta name="author" content="Danny Portman">
+  <link rel="canonical" href="https://portman.ai/writing/agent-token-economics.html">
+  <link rel="alternate" type="application/rss+xml" title="Portman AI — Practical Agentic Systems" href="https://portman.ai/feed.xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Portman AI">
+  <meta property="og:url" content="https://portman.ai/writing/agent-token-economics.html">
+  <meta property="og:title" content="The Real Cost of an Agent: A Token Economics Field Guide">
+  <meta property="og:description" content="LLM agent cost optimization: why context growth and retries dominate the bill, four levers that cut spend 5–10x, and a worksheet for estimating cost per run.">
+  <meta property="og:image" content="https://portman.ai/og.png">
+  <meta property="article:published_time" content="2026-08-17">
+  <meta property="article:author" content="Danny Portman">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="The Real Cost of an Agent: A Token Economics Field Guide">
+  <meta name="twitter:description" content="LLM agent cost optimization: why context growth and retries dominate the bill, four levers that cut spend 5–10x, and a worksheet for estimating cost per run.">
+  <meta name="twitter:image" content="https://portman.ai/og.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "The Real Cost of an Agent: A Token Economics Field Guide",
+    "description": "LLM agent cost optimization: why context growth and retries dominate the bill, four levers that cut spend 5–10x, and a worksheet for estimating cost per run.",
+    "url": "https://portman.ai/writing/agent-token-economics.html",
+    "datePublished": "2026-08-17",
+    "dateModified": "2026-08-17",
+    "mainEntityOfPage": "https://portman.ai/writing/agent-token-economics.html",
+    "image": "https://portman.ai/og.png",
+    "author": { "@type": "Person", "name": "Danny Portman", "url": "https://portman.ai/" },
+    "publisher": { "@type": "Person", "name": "Danny Portman", "url": "https://portman.ai/" },
+    "isPartOf": { "@id": "https://portman.ai/writing/#blog" }
+  }
+  </script>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▲</text></svg>">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="/">Portman AI</a>
+    <nav class="site">
+      <a href="/">Home</a>
+      <a href="./" aria-current="page">Writing</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <article class="post">
+    <h1>The Real Cost of an Agent: A Token Economics Field Guide</h1>
+    <p class="meta">Danny Portman · August 17, 2026</p>
+
+    <p>
+      When teams estimate what an LLM agent feature will cost, the usual method is to look
+      up the per-token price, multiply by a guess at tokens per request, and arrive at a
+      number that's wrong by 10x. Always in the same direction, too. The error isn't in
+      the price sheet. It's in the mental model: per-call pricing tells you almost nothing
+      about what an <em>agent</em> costs, because agent spend is dominated by two things
+      no price sheet shows. Context growth, and retries.
+    </p>
+
+    <h2>Anatomy of an agent's token bill</h2>
+    <p>
+      An agent is a loop, and the defining property of the loop is that every step
+      re-sends the conversation so far. Cost is quadratic-ish in steps, not linear. Three
+      mechanisms do the damage.
+    </p>
+    <p>
+      <strong>Context accumulation.</strong> Step 1 sends the system prompt and the task.
+      Step 10 sends the system prompt, the task, and nine steps of tool calls and
+      results, and pays for all of it again. A 12-step run isn't 12 calls at demo prices.
+      It's 12 calls whose average size is several times the first one.
+    </p>
+    <p>
+      <strong>Tool-result bloat.</strong> In the bills I've actually audited, this is the
+      single biggest line item. A tool "returns the customer record": all 40KB of it, of
+      which the agent needed four fields. That blob rides along in context for every
+      remaining step, billed each time. One chatty tool can quietly double the cost of
+      every run it appears in, and nobody notices because each individual call looks
+      normal.
+    </p>
+    <p>
+      <strong>Retry storms.</strong> A malformed tool call triggers a retry. A validation
+      failure triggers a re-plan. A stuck agent tries "one more approach" four times.
+      Every retry re-sends the full accumulated context. Failure modes and cost modes
+      turn out to be the same thing, which has a useful corollary: a cost spike is one of
+      the best production alarms for an agent bug you haven't found yet.
+    </p>
+
+    <h2>The four levers</h2>
+    <div class="table-scroll">
+      <table>
+        <tr><th>Lever</th><th>What it is</th><th>Typical savings</th></tr>
+        <tr>
+          <td>Context pruning</td>
+          <td>Truncate tool results to what's needed; summarize or drop resolved steps
+              instead of carrying them verbatim</td>
+          <td>2–4x on long runs</td>
+        </tr>
+        <tr>
+          <td>Model tiering</td>
+          <td>Frontier model for planning and judgment steps; a small fast model for
+              extraction, formatting, and routing</td>
+          <td>2–5x, task-dependent</td>
+        </tr>
+        <tr>
+          <td>Prompt caching</td>
+          <td>Structure prompts so the stable prefix (system prompt, tool schemas,
+              reference docs) is byte-identical across calls and cache-eligible</td>
+          <td>Up to ~90% on the cached prefix</td>
+        </tr>
+        <tr>
+          <td>Output budgets</td>
+          <td>Cap output length per step type; require structured output instead of prose
+              narration between tool calls</td>
+          <td>1.5–2x on output tokens</td>
+        </tr>
+      </table>
+    </div>
+    <p>
+      The levers compound. Pruning shrinks what tiering's cheap models have to read.
+      Caching pays off more when the stable prefix is a bigger share of each call. Teams
+      that pull all four routinely land 5–10x below their naive baseline with no
+      measurable quality loss, and the reason is worth understanding: none of these
+      levers touch the model's reasoning. They only reduce what it's forced to re-read
+      and re-say.
+    </p>
+    <p>
+      One rule before touching any of them: instrument first. Per-step token accounting
+      in your traces, before optimizing anything. Every agent bill I've looked at had one
+      dominant term. It was a different term each time, and it was never the one the team
+      guessed in the meeting.
+    </p>
+
+    <h2>The back-of-envelope worksheet</h2>
+    <p>Before building an agent feature, estimate its unit economics honestly:</p>
+    <pre><code>cost_per_run ≈ steps
+             × (avg_context_tokens × input_price
+                + avg_output_tokens × output_price)
+             × retry_factor        # 1.2–1.5 if you're honest
+
+monthly     = cost_per_run × runs_per_day × 30</code></pre>
+    <p>
+      Worked example. A 10-step agent averaging 8K context tokens per step and 300 output
+      tokens per step, on a frontier model at $3 per million input tokens and $15 per
+      million output, with a 1.3 retry factor, comes to about $0.37 per run. At 2,000
+      runs a day, that's roughly $22K a month, for a feature everyone in the planning
+      meeting eyeballed at "a couple thousand." Now rerun the numbers with pruning
+      bringing average context to 3K, half the steps moved to a model at a tenth the
+      price, and caching on the prefix. It lands around $4K. Same feature, same quality
+      bar, maybe an afternoon of engineering.
+    </p>
+
+    <h2>When the numbers say "don't build the agent"</h2>
+    <p>
+      Sometimes the worksheet delivers a verdict nobody wants: the agent costs more per
+      run than the task it automates is worth. Before abandoning the feature, question
+      the loop. A surprising fraction of "agent" workloads are pipelines wearing an agent
+      costume. The same three tools, called in the same order, on nearly every run, with
+      a frontier model improvising the sequence each time at ten times the cost of
+      hardcoding it.
+    </p>
+    <p>
+      The test I use: if the p90 successful trace shows the same tool sequence, build
+      that sequence as a plain pipeline with a model call only at the genuinely uncertain
+      points, and keep the full agent loop for the tail of cases the pipeline can't
+      classify. This pairs naturally with the step caps from the
+      <a href="agent-boundaries.html">boundaries essay</a>: the traces that keep hitting
+      the cap and the traces that should have been a pipeline are usually the same ones.
+    </p>
+    <p>
+      Agents earn their cost when they handle genuine variability. Spend the money there.
+      Not on re-reading a 40KB customer record eleven times.
+    </p>
+  </article>
+
+  <section id="subscribe">
+    <h2>Get the next essay</h2>
+    <!-- TODO: replace action URL with your newsletter form endpoint -->
+    <form class="subscribe" action="#" method="post">
+      <input type="email" name="email" placeholder="you@company.com" required aria-label="Email address">
+      <button class="btn" type="submit">Subscribe</button>
+    </form>
+  </section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    Danny Portman · <a href="mailto:danny@portman.ai">danny@portman.ai</a>
+  </div>
+</footer>
+
+</body>
+</html>

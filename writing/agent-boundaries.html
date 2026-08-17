@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Agent Guardrails: Boundaries Beat Autonomy — Portman AI</title>
+  <meta name="description" content="Why constrained AI agents with tool allowlists, step caps, and approval gates beat fully autonomous agent loops in production.">
+  <meta name="author" content="Danny Portman">
+  <link rel="canonical" href="https://portman.ai/writing/agent-boundaries.html">
+  <link rel="alternate" type="application/rss+xml" title="Portman AI — Practical Agentic Systems" href="https://portman.ai/feed.xml">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Portman AI">
+  <meta property="og:url" content="https://portman.ai/writing/agent-boundaries.html">
+  <meta property="og:title" content="Your Agent Doesn't Need More Autonomy. It Needs Better Boundaries.">
+  <meta property="og:description" content="Why constrained AI agents with tool allowlists, step caps, and approval gates beat fully autonomous agent loops in production.">
+  <meta property="og:image" content="https://portman.ai/og.png">
+  <meta property="article:published_time" content="2026-08-17">
+  <meta property="article:author" content="Danny Portman">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Your Agent Doesn't Need More Autonomy. It Needs Better Boundaries.">
+  <meta name="twitter:description" content="Why constrained AI agents with tool allowlists, step caps, and approval gates beat fully autonomous agent loops in production.">
+  <meta name="twitter:image" content="https://portman.ai/og.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Your Agent Doesn't Need More Autonomy. It Needs Better Boundaries.",
+    "description": "Why constrained AI agents with tool allowlists, step caps, and approval gates beat fully autonomous agent loops in production.",
+    "url": "https://portman.ai/writing/agent-boundaries.html",
+    "datePublished": "2026-08-17",
+    "dateModified": "2026-08-17",
+    "mainEntityOfPage": "https://portman.ai/writing/agent-boundaries.html",
+    "image": "https://portman.ai/og.png",
+    "author": { "@type": "Person", "name": "Danny Portman", "url": "https://portman.ai/" },
+    "publisher": { "@type": "Person", "name": "Danny Portman", "url": "https://portman.ai/" },
+    "isPartOf": { "@id": "https://portman.ai/writing/#blog" }
+  }
+  </script>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▲</text></svg>">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="/">Portman AI</a>
+    <nav class="site">
+      <a href="/">Home</a>
+      <a href="./" aria-current="page">Writing</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <article class="post">
+    <h1>Your Agent Doesn't Need More Autonomy. It Needs Better Boundaries.</h1>
+    <p class="meta">Danny Portman · August 17, 2026</p>
+
+    <p>
+      I've watched the same failure play out at several companies now, on roughly the same
+      schedule. Week one: a demo that makes everyone in the room lean forward. The agent
+      plans, calls tools, recovers from a hiccup, delivers the answer. Week three: same
+      agent, now pointed at real tickets and real customer data, and it's re-reading the
+      same file for the fourth time, calling the wrong tool with total confidence, and
+      occasionally doing something nobody asked for. By week six the project has been
+      quietly renamed from "autonomous" to "AI-assisted," which is a polite way of saying
+      a human now babysits every run.
+    </p>
+    <p>
+      The instinct at this point is to try a smarter model or rewrite the system prompt
+      again. Sometimes that helps. Usually the problem is somewhere else: the agent was
+      handed an open-ended mandate in an environment that punishes open-endedness. What
+      it needed wasn't more intelligence. It needed guardrails that were designed instead
+      of hoped for.
+    </p>
+
+    <h2>Why the demo lies to you</h2>
+    <p>
+      A demo is a friendly environment. Hand-picked inputs, a short horizon, a human
+      narrator ready to talk past the weird step. Production is none of those things, and
+      an unconstrained agent loop degrades on exactly the axes production stresses: errors
+      compound across steps, the context fills up with junk, and the cost of a wrong
+      action goes from "restart the demo" to "explain to a customer why the refund went
+      out twice."
+    </p>
+    <p>
+      The teams I've seen run LLM agents in production reliably are not the ones with the
+      best prompts. They're the ones who treat autonomy as a budget to spend deliberately.
+    </p>
+
+    <h2>The guardrail toolkit</h2>
+    <p>
+      Four mechanisms cover most of what you need in practice. For each one, there's a
+      simple rule for deciding whether it applies.
+    </p>
+
+    <h3>1. Tool allowlists with typed contracts</h3>
+    <p>
+      Give the agent the smallest set of tools that can do the job, not your whole API
+      surface. Every tool gets a schema, and the schema should encode as much of the
+      business rule as it can hold. If refunds over $200 need approval, that belongs in
+      the tool contract as a hard limit. Not in the system prompt, where it's a sentence
+      hoping to be remembered on step 14.
+    </p>
+    <p><em>Rule:</em> if a tool can mutate external state, its contract should make the
+      dangerous version of the call impossible to express.</p>
+
+    <h3>2. Step and budget caps</h3>
+    <p>
+      Every loop gets a hard ceiling on steps and on spend, and the ceiling should be a
+      designed number, not a shrug. Something like: this task normally takes 5 to 8 tool
+      calls, so at 12 something is wrong, and at 15 we stop and surface the trace. Runaway
+      loops are the most common agent failure I see in the wild. They're also the cheapest
+      to prevent, which makes it a little embarrassing how rarely they are.
+    </p>
+    <p><em>Rule:</em> measure the step count of your successful runs, set the cap around
+      double the p95, and treat every cap hit as a bug report. It is one.</p>
+
+    <h3>3. Explicit stop conditions</h3>
+    <p>
+      "Keep going until done" is not a stop condition. It's an invitation for the model to
+      define "done" creatively. A production agent should have exactly three ways to end a
+      run: success with a defined output shape, failure with a stated reason, or
+      escalation to a human. The harness forces it to pick one. The escalation path
+      matters most, and it's the one teams skip. An agent that can say "I'm stuck, here's
+      why" is worth far more than one that improvises past the problem.
+    </p>
+
+    <h3>4. Human gates on irreversible actions</h3>
+    <p>
+      Anything expensive to undo goes through an approval gate at first: sending,
+      deleting, paying, deploying. The gate isn't an admission of defeat, and it isn't
+      permanent. It's instrumentation. After a few hundred approvals you have a labeled
+      dataset of what the agent proposed versus what a human accepted, and that dataset
+      tells you when the gate can safely widen. Without it you're just guessing with
+      higher stakes.
+    </p>
+    <p><em>Rule:</em> gate by reversibility, not frequency. A rare irreversible action
+      needs a gate. A frequent read-only one never does.</p>
+
+    <p>In code, the shape is boring. That's the point:</p>
+    <pre><code>run = harness.run(
+    task=ticket,
+    tools=[lookup_order, draft_reply, issue_refund.gated(approver="support-lead")],
+    max_steps=12,
+    max_cost_usd=0.50,
+    on_stuck=escalate_with_trace,
+)</code></pre>
+
+    <h2>What this looked like on a real system</h2>
+    <p>
+      One team I worked with had a support agent with full API access and "resolve the
+      ticket" as its goal. No step limit. The demo was spectacular. In the production
+      pilot it resolved about 60% of tickets and did something alarming in roughly 2%,
+      and the 2% burned through every bit of goodwill the 60% had earned. One incident
+      involved a refund nobody could explain. That was the week the humans started
+      reviewing every run, which defeated the purpose of the whole project.
+    </p>
+    <p>
+      We rebuilt it as a bounded system. A classifier routes each ticket into one of five
+      playbooks. Each playbook is a short agent loop with its own tool allowlist and step
+      cap. Anything that doesn't fit a playbook escalates immediately, with a summary of
+      what was tried. Resolution went <em>up</em>, to around 70%, mostly because the agent
+      stopped spending its context and step budget on tickets it was never going to
+      handle. The alarming-action rate went to zero, not because the model got better but
+      because the dangerous calls were no longer expressible. Less autonomous, more
+      useful, same week.
+    </p>
+
+    <h2>Six questions before you grant a capability</h2>
+    <p>Before giving an agent a new tool or a longer leash:</p>
+    <p>
+      1. What's the worst single action this enables, and is it reversible?<br>
+      2. Can the constraint live in the tool contract instead of the prompt?<br>
+      3. What does a stuck run look like, and how does it end?<br>
+      4. What's the step budget, and what happens at the cap?<br>
+      5. Would a human reading the trace understand why each step happened?<br>
+      6. What evidence would justify widening this boundary later?
+    </p>
+    <p>
+      Number six is the one that separates engineering from gambling. If you can't name
+      the evidence that would let you loosen a guardrail, you have no basis for the
+      guardrails you already chose. The follow-up to this essay covers where that
+      evidence comes from: <a href="evals-before-agents.html">build the evals before you
+      build the agent</a>.
+    </p>
+  </article>
+
+  <section id="subscribe">
+    <h2>Get the next essay</h2>
+    <!-- TODO: replace action URL with your newsletter form endpoint -->
+    <form class="subscribe" action="#" method="post">
+      <input type="email" name="email" placeholder="you@company.com" required aria-label="Email address">
+      <button class="btn" type="submit">Subscribe</button>
+    </form>
+  </section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    Danny Portman · <a href="mailto:danny@portman.ai">danny@portman.ai</a>
+  </div>
+</footer>
+
+</body>
+</html>
