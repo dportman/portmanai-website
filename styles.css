@@ -5,7 +5,6 @@
   --ink-soft: #50555c;
   --ink-faint: #8a8f96;
   --accent: #1f4fd8;
-  --accent-ink: #ffffff;
   --border: #e6e6e6;
   --code-bg: #f5f4f1;
   --pre-bg: #14171f;
@@ -20,7 +19,6 @@
     --ink-soft: #a7adb5;
     --ink-faint: #767c84;
     --accent: #8ab0ff;
-    --accent-ink: #10131a;
     --border: #2a2d31;
     --code-bg: #22262b;
     --pre-bg: #0e1116;
@@ -91,21 +89,6 @@ h3 { font-size: 1.05rem; margin: 0 0 0.35rem; }
 p { margin: 0 0 1rem; }
 a { color: var(--accent); }
 main p a, main li a { text-decoration-thickness: 1px; text-underline-offset: 2px; }
-.muted { color: var(--ink-faint); font-size: 0.9rem; }
-
-/* Buttons + forms */
-.btn {
-  display: inline-block;
-  background: var(--accent);
-  color: var(--accent-ink);
-  padding: 0.6rem 1.1rem;
-  border-radius: 8px;
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 0.95rem;
-  border: none;
-  cursor: pointer;
-}
 
 /* Post list */
 ul.posts { list-style: none; padding: 0; margin: 0; }
