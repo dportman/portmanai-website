@@ -51,8 +51,8 @@
   <div class="wrap">
     <a class="brand" href="/">Portman AI</a>
     <nav class="site">
-      <a href="/" aria-current="page">Home</a>
       <a href="writing/">Writing</a>
+      <a href="feed.xml">RSS</a>
     </nav>
   </div>
 </header>
@@ -60,59 +60,54 @@
 <main class="wrap">
 
   <div class="hero">
-    <h1>Production-grade agentic systems, without the trial and error.</h1>
+    <h1>Hi, I'm Danny Portman.</h1>
     <p class="lede">
-      I'm Danny Portman. I build LLM-powered and agentic systems for a living, and I write
-      about what actually works in production — architecture patterns, evals, cost control,
-      and the failure modes nobody puts in the launch post.
+      I build LLM and agentic systems in production. This is where I write about what
+      actually works: agent architecture, evals, cost control, and the failure modes
+      that never make it into the launch posts.
     </p>
-    <a class="btn" href="#subscribe">Get the newsletter</a>
-    <a class="btn secondary" href="writing/">Read the essays</a>
   </div>
 
+  <section>
+    <h2>Writing</h2>
+    <ul class="posts">
+      <li>
+        <span class="date">Aug 3, 2026</span>
+        <a href="writing/mcp-in-production.html">MCP in Production: What the Tutorials Don't Cover</a>
+      </li>
+      <li>
+        <span class="date">Jun 16, 2026</span>
+        <a href="writing/agent-token-economics.html">The Real Cost of an Agent: A Token Economics Field Guide</a>
+      </li>
+      <li>
+        <span class="date">Apr 28, 2026</span>
+        <a href="writing/evals-before-agents.html">Evals Before Agents: The Order of Operations Nobody Follows</a>
+      </li>
+      <li>
+        <span class="date">Mar 10, 2026</span>
+        <a href="writing/agent-boundaries.html">Your Agent Doesn't Need More Autonomy. It Needs Better Boundaries.</a>
+      </li>
+    </ul>
+  </section>
+
   <section id="subscribe">
-    <h2>Practical Agentic Systems — the newsletter</h2>
-    <p>
-      One deep, engineering-grade essay every couple of weeks. Real architectures, real
-      trade-offs, code you can use. No hype recaps, no link dumps.
-    </p>
+    <h2>Get new essays by email</h2>
+    <p>One engineering-grade essay every couple of weeks. No hype recaps, no link dumps.</p>
     <!-- TODO: replace action URL with your Buttondown/ConvertKit form endpoint -->
     <form class="subscribe" action="#" method="post">
       <input type="email" name="email" placeholder="you@company.com" required aria-label="Email address">
       <button class="btn" type="submit">Subscribe</button>
     </form>
-    <p class="muted">Free. Unsubscribe anytime.</p>
-  </section>
-
-  <section>
-    <h2>Latest writing</h2>
-    <ul class="posts">
-      <li>
-        <span class="date">March 10, 2026</span>
-        <a href="writing/agent-boundaries.html">Your Agent Doesn't Need More Autonomy. It Needs Better Boundaries.</a>
-      </li>
-      <li>
-        <span class="date">April 28, 2026</span>
-        <a href="writing/evals-before-agents.html">Evals Before Agents: The Order of Operations Nobody Follows</a>
-      </li>
-      <li>
-        <span class="date">June 16, 2026</span>
-        <a href="writing/agent-token-economics.html">The Real Cost of an Agent: A Token Economics Field Guide</a>
-      </li>
-      <li>
-        <span class="date">August 3, 2026</span>
-        <a href="writing/mcp-in-production.html">MCP in Production: What the Tutorials Don't Cover</a>
-      </li>
-    </ul>
-    <p><a href="writing/">All essays →</a></p>
+    <p class="muted">Free. Unsubscribe anytime. Or grab the <a href="feed.xml">RSS feed</a>.</p>
   </section>
 
 </main>
 
 <footer class="site">
   <div class="wrap">
-    Danny Portman · <a href="mailto:danny@portman.ai">danny@portman.ai</a>
-    · <a href="https://www.linkedin.com/">LinkedIn</a> <!-- TODO: your LinkedIn URL -->
+    &#169; 2026 Danny Portman &#183; <a href="mailto:danny@portman.ai">danny@portman.ai</a>
+    &#183; <a href="https://www.linkedin.com/">LinkedIn</a> <!-- TODO: your LinkedIn URL -->
+    &#183; <a href="feed.xml">RSS</a>
   </div>
 </footer>
 
